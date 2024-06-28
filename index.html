@@ -1,0 +1,214 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Catch the Fruit</title>
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+            height: 100vh;
+            margin: 0;
+            background-color: #f0f0f0;
+        }
+        canvas {
+            border: 2px solid #ccc;
+        }
+        #gameOver {
+            position: absolute;
+            top: 50%;
+            left: 50%;
+            transform: translate(-50%, -50%);
+            background-color: white;
+            padding: 20px;
+            border-radius: 10px;
+            text-align: center;
+            display: none;
+        }
+        button {
+            margin: 5px;
+            padding: 10px 20px;
+            font-size: 16px;
+            cursor: pointer;
+            border: none;
+            border-radius: 5px;
+            color: white;
+        }
+        #slowStart { background-color: #4CAF50; }
+        #mediumStart { background-color: #FFC107; }
+        #fastStart { background-color: #F44336; }
+        #playAgain { background-color: #2196F3; }
+    </style>
+</head>
+<body>
+    <h1>Catch the Fruit</h1>
+    <canvas id="gameCanvas" width="300" height="400"></canvas>
+    <p id="scoreDisplay">Score: 0</p>
+    <p id="highScoreDisplay">High Score: 0</p>
+    <div>
+        <button id="slowStart">Slow Start</button>
+        <button id="mediumStart">Medium Start</button>
+        <button id="fastStart">Fast Start</button>
+    </div>
+    <div id="gameOver">
+        <h2>Game Over</h2>
+        <p id="finalScore"></p>
+        <p id="finalHighScore"></p>
+        <p id="levelReached"></p>
+        <button id="playAgain">Play Again</button>
+    </div>
+
+    <script>
+        const canvas = document.getElementById('gameCanvas');
+        const ctx = canvas.getContext('2d');
+        const scoreDisplay = document.getElementById('scoreDisplay');
+        const highScoreDisplay = document.getElementById('highScoreDisplay');
+        const gameOverScreen = document.getElementById('gameOver');
+        const finalScore = document.getElementById('finalScore');
+        const finalHighScore = document.getElementById('finalHighScore');
+        const levelReached = document.getElementById('levelReached');
+
+        const basketWidth = 80;
+        const basketHeight = 60;
+        const fruitSize = 30;
+
+        let score = 0;
+        let highScore = parseInt(localStorage.getItem('fruitCatcherHighScore')) || 0;
+        let basketX = 150;
+        let fruit = null;
+        let baseFallSpeed = 0.5;
+        let currentFallSpeed = 0.5;
+        let level = 1;
+        let gameOver = false;
+
+        const fruitTypes = [
+            { type: 'apple', points: 1, color: 'red' },
+            { type: 'banana', points: 2, color: 'yellow' },
+            { type: 'orange', points: 3, color: 'orange' }
+        ];
+
+        function createNewFruit() {
+            const randomFruit = fruitTypes[Math.floor(Math.random() * fruitTypes.length)];
+            fruit = {
+                ...randomFruit,
+                x: Math.random() * (300 - fruitSize),
+                y: 0
+            };
+        }
+
+        function drawBasket() {
+            ctx.fillStyle = '#8B4513';
+            ctx.beginPath();
+            ctx.moveTo(basketX, 400);
+            ctx.lineTo(basketX + basketWidth, 400);
+            ctx.lineTo(basketX + basketWidth - 10, 340);
+            ctx.lineTo(basketX + 10, 340);
+            ctx.closePath();
+            ctx.fill();
+        }
+
+        function drawFruit() {
+            ctx.fillStyle = fruit.color;
+            ctx.beginPath();
+            ctx.arc(fruit.x + fruitSize/2, fruit.y + fruitSize/2, fruitSize/2, 0, Math.PI * 2);
+            ctx.fill();
+        }
+
+        function updateGame() {
+            ctx.clearRect(0, 0, 300, 400);
+            
+            drawBasket();
+            
+            if (fruit) {
+                drawFruit();
+                fruit.y += currentFallSpeed;
+                
+                if (fruit.y > 320 && fruit.y < 340 && fruit.x > basketX - fruitSize && fruit.x < basketX + basketWidth) {
+                    score += fruit.points;
+                    updateScore();
+                    createNewFruit();
+                }
+                
+                if (fruit.y > 400) {
+                    endGame();
+                }
+            }
+            
+            ctx.fillStyle = 'black';
+            ctx.font = '12px Arial';
+            ctx.fillText(`Level: ${level}`, 10, 20);
+            ctx.fillText(`Speed: ${currentFallSpeed.toFixed(2)}`, 10, 40);
+            ctx.fillText(`High Score: ${highScore}`, 10, 60);
+            
+            if (!gameOver) {
+                requestAnimationFrame(updateGame);
+            }
+        }
+
+        function updateScore() {
+            scoreDisplay.textContent = `Score: ${score}`;
+            if (score > highScore) {
+                highScore = score;
+                localStorage.setItem('fruitCatcherHighScore', highScore.toString());
+                highScoreDisplay.textContent = `High Score: ${highScore}`;
+            }
+            
+            const newLevel = Math.floor(score / 50) + 1;
+            if (newLevel !== level) {
+                level = newLevel;
+                currentFallSpeed = baseFallSpeed + (level - 1) * 0.05;
+            }
+        }
+
+        function endGame() {
+            gameOver = true;
+            gameOverScreen.style.display = 'block';
+            finalScore.textContent = `Your score: ${score}`;
+            finalHighScore.textContent = `High score: ${highScore}`;
+            levelReached.textContent = `Level reached: ${level}`;
+        }
+
+        function restartGame() {
+            score = 0;
+            level = 1;
+            currentFallSpeed = baseFallSpeed;
+            gameOver = false;
+            gameOverScreen.style.display = 'none';
+            scoreDisplay.textContent = 'Score: 0';
+            createNewFruit();
+            updateGame();
+        }
+
+        canvas.addEventListener('mousemove', (e) => {
+            const rect = canvas.getBoundingClientRect();
+            const x = e.clientX - rect.left;
+            basketX = Math.max(0, Math.min(x - basketWidth / 2, 300 - basketWidth));
+        });
+
+        document.getElementById('slowStart').addEventListener('click', () => {
+            baseFallSpeed = 0.1;
+            restartGame();
+        });
+
+        document.getElementById('mediumStart').addEventListener('click', () => {
+            baseFallSpeed = 0.5;
+            restartGame();
+        });
+
+        document.getElementById('fastStart').addEventListener('click', () => {
+            baseFallSpeed = 1;
+            restartGame();
+        });
+
+        document.getElementById('playAgain').addEventListener('click', restartGame);
+
+        highScoreDisplay.textContent = `High Score: ${highScore}`;
+        createNewFruit();
+        updateGame();
+    </script>
+</body>
+</html>
